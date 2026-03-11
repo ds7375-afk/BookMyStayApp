@@ -3,12 +3,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Combined implementation of Use Case 3: Centralized Room Inventory Management.
- * This code demonstrates how to use a HashMap to maintain a single source of truth.
- */
-
-// 1. Room Domain Model (Handles characteristics)
+// 1. Room Domain Model (Static Characteristics)
 class Room {
     private String type;
     private int beds;
@@ -28,77 +23,61 @@ class Room {
     public double getPrice() { return price; }
 }
 
-// 2. Inventory Controller (Handles availability)
+// 2. Centralized Room Inventory (From UC3)
 class RoomInventory {
-    // Key -> Room type name | Value -> Available room count
-    private Map<String, Integer> roomAvailability;
+    private Map<String, Integer> roomAvailability = new HashMap<>();
 
     public RoomInventory() {
-        this.roomAvailability = new HashMap<>();
-        initializeInventory();
+        roomAvailability.put("Single", 5);
+        roomAvailability.put("Double", 3);
+        roomAvailability.put("Suite", 0); // Setting Suite to 0 to test Filtering
     }
 
-    /**
-     * Centralizes inventory setup instead of using scattered variables.
-     */
-    private void initializeInventory() {
-        roomAvailability.put("Single Room", 5);
-        roomAvailability.put("Double Room", 3);
-        roomAvailability.put("Suite Room", 2);
-    }
-
-    /**
-     * Returns the current availability map.
-     */
     public Map<String, Integer> getRoomAvailability() {
         return roomAvailability;
     }
+}
 
+// 3. Use Case 4: Room Search Service (Read-Only)
+class RoomSearchService {
     /**
-     * Updates availability for a specific room type via controlled method.
+     * Displays only available rooms.
+     * No inventory mutation happens here.
      */
-    public void updateAvailability(String roomType, int count) {
-        if (roomAvailability.containsKey(roomType)) {
-            roomAvailability.put(roomType, count);
+    public void searchAvailableRooms(RoomInventory inventory, Room singleRoom, Room doubleRoom, Room suiteRoom) {
+        Map<String, Integer> availability = inventory.getRoomAvailability();
+
+        System.out.println("Room Search Results:");
+        System.out.println("--------------------");
+
+        // Logic to check and display only if availability > 0
+        displayIfAvailable(singleRoom, availability.getOrDefault("Single", 0));
+        displayIfAvailable(doubleRoom, availability.getOrDefault("Double", 0));
+        displayIfAvailable(suiteRoom, availability.getOrDefault("Suite", 0));
+    }
+
+    private void displayIfAvailable(Room room, int count) {
+        if (count > 0) {
+            System.out.println(room.getType() + " Room:");
+            System.out.println("Beds: " + room.getBeds());
+            System.out.println("Size: " + room.getSize() + " sqft");
+            System.out.println("Price per night: " + room.getPrice());
+            System.out.println("Status: " + count + " rooms left\n");
         }
     }
 }
 
-// 3. Main Application Class
+// 4. Main Driver Class
 public class BookMyStayApp {
     public static void main(String[] args) {
-        // Initialize the centralized inventory component
-        RoomInventory inventoryManager = new RoomInventory();
+        // Setup Data
+        RoomInventory inventory = new RoomInventory();
+        Room single = new Room("Single", 1, 250, 1500.0);
+        Room doubleR = new Room("Double", 2, 400, 2500.0);
+        Room suite = new Room("Suite", 3, 750, 5000.0);
 
-        // Create the list of Room objects (Pricing and Characteristics)
-        List<Room> hotelRooms = new ArrayList<>();
-        hotelRooms.add(new Room("Single Room", 1, 250, 1500.0));
-        hotelRooms.add(new Room("Double Room", 2, 400, 2500.0));
-        hotelRooms.add(new Room("Suite Room", 3, 750, 5000.0));
-
-        // Display the Inventory Status as per the screenshot requirements
-        System.out.println("Hotel Room Inventory Status");
-        System.out.println("---------------------------");
-
-        for (Room room : hotelRooms) {
-            String roomType = room.getType();
-
-            // Fetch availability from the centralized HashMap (O(1) lookup)
-            int availableRooms = inventoryManager.getRoomAvailability().getOrDefault(roomType, 0);
-
-            System.out.println(roomType + ":");
-            System.out.println("Beds: " + room.getBeds());
-            System.out.println("Size: " + room.getSize() + " sqft");
-            System.out.println("Price per night: " + room.getPrice());
-            System.out.println("Available Rooms: " + availableRooms);
-            System.out.println();
-        }
-
-        // Demonstration of a controlled update
-        System.out.println(">>> Action: Booking 1 Suite Room...");
-        int currentSuites = inventoryManager.getRoomAvailability().get("Suite Room");
-        inventoryManager.updateAvailability("Suite Room", currentSuites - 1);
-
-        System.out.println("Updated Available Suites: " + inventoryManager.getRoomAvailability().get("Suite Room"));
+        // Execute Search Service
+        RoomSearchService searchService = new RoomSearchService();
+        searchService.searchAvailableRooms(inventory, single, doubleR, suite);
     }
 }

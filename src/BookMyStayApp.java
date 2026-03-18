@@ -1,80 +1,78 @@
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * =============================================================================
  * PROJECT: Book My Stay App
- * USE CASE 9: Error Handling & Validation
+ * USE CASE 10: Booking Cancellation & Inventory Rollback
  * =============================================================================
  */
 
-// 1. CUSTOM EXCEPTION: Represents domain-specific booking errors
-class InvalidBookingException extends Exception {
-    public InvalidBookingException(String message) {
-        super(message);
-    }
-}
+// 1. SERVICE CLASS: Manages the reversal of booking state
+class CancellationService {
+    // Stack stores released room IDs to be reused (LIFO Rollback)
+    private Stack<String> releasedRooms;
+    private Map<String, String> activeBookings; // Mock storage: ReservationID -> RoomID
+    private int inventoryCount;
 
-// 2. MOCK INVENTORY: Used for validation logic
-class RoomInventory {
-    public boolean isValidType(String roomType) {
-        // Simplified check: only allows specific types (case-sensitive for this example)
-        return roomType.equals("Single") || roomType.equals("Double") || roomType.equals("Suite");
-    }
-}
+    public CancellationService(int initialInventory) {
+        this.releasedRooms = new Stack<>();
+        this.activeBookings = new HashMap<>();
+        this.inventoryCount = initialInventory;
 
-// 3. VALIDATOR: Centralizes all rules to prevent data corruption
-class ReservationValidator {
+        // Pre-populating a mock booking for demonstration
+        activeBookings.put("RES101", "Room-501");
+    }
+
     /**
-     * Validates input before any processing happens.
-     * @throws InvalidBookingException if rules are violated.
+     * Processes cancellation by validating the request and rolling back state.
      */
-    public void validate(String guestName, String roomType, RoomInventory inventory)
-            throws InvalidBookingException {
+    public void cancelBooking(String reservationId) {
+        System.out.println("Processing Cancellation for: " + reservationId);
 
-        if (guestName == null || guestName.trim().isEmpty()) {
-            throw new InvalidBookingException("Guest name cannot be empty.");
+        // Step 1: Validation - Ensure reservation exists
+        if (!activeBookings.containsKey(reservationId)) {
+            System.err.println("Error: Reservation " + reservationId + " not found or already cancelled.");
+            return;
         }
 
-        if (!inventory.isValidType(roomType)) {
-            throw new InvalidBookingException("Invalid room type selected: " + roomType);
-        }
+        // Step 2: Identify the allocated room
+        String roomId = activeBookings.remove(reservationId);
+
+        // Step 3: Stack-based Rollback (LIFO)
+        // Pushing the room ID back to the pool
+        releasedRooms.push(roomId);
+
+        // Step 4: Inventory Restoration
+        inventoryCount++;
+
+        System.out.println("Success: " + roomId + " has been released.");
+        System.out.println("Updated Inventory Count: " + inventoryCount);
+        System.out.println("Available Rooms in Rollback Pool: " + releasedRooms);
     }
+
+    public int getInventoryCount() { return inventoryCount; }
 }
 
-// 4. MAIN CLASS: Demonstrates Graceful Failure Handling
+// 2. MAIN CLASS: Entry point to demonstrate the rollback flow
 public class BookMyStayApp {
     public static void main(String[] args) {
-        System.out.println("Booking Validation System");
-        System.out.println("-------------------------");
+        // Initialize with 10 rooms (assuming 1 is already taken by RES101)
+        CancellationService service = new CancellationService(9);
 
-        Scanner scanner = new Scanner(System.in);
-        RoomInventory inventory = new RoomInventory();
-        ReservationValidator validator = new ReservationValidator();
+        System.out.println("Booking Cancellation & Inventory Rollback");
+        System.out.println("------------------------------------------");
 
-        try {
-            // Step 1: Collect Input
-            System.out.print("Enter guest name: ");
-            String name = scanner.nextLine();
+        // Scenario 1: Valid Cancellation
+        service.cancelBooking("RES101");
 
-            System.out.print("Enter room type (Single/Double/Suite): ");
-            String type = scanner.nextLine();
+        System.out.println("------------------------------------------");
 
-            // Step 2: Validate (Fail-Fast)
-            // If this fails, the code jumps straight to the catch block
-            validator.validate(name, type, inventory);
+        // Scenario 2: Invalid Cancellation (Already cancelled or non-existent)
+        service.cancelBooking("RES101");
 
-            // Step 3: Success Path
-            System.out.println("Validation successful! Proceeding with booking for " + name);
+        System.out.println("------------------------------------------");
 
-        } catch (InvalidBookingException e) {
-            // Step 4: Graceful Failure
-            // The system doesn't crash; it just informs the user.
-            System.err.println("Booking failed: " + e.getMessage());
-        } finally {
-            // Ensure resources are closed regardless of success or failure
-            scanner.close();
-            System.out.println("-------------------------");
-            System.out.println("System state remains stable.");
-        }
+        // Scenario 3: System Stability Check
+        System.out.println("Final System Inventory State: " + service.getInventoryCount());
     }
 }

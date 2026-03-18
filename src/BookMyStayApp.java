@@ -1,83 +1,80 @@
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Scanner;
 
 /**
  * =============================================================================
  * PROJECT: Book My Stay App
- * USE CASE 8: Booking History & Reporting
+ * USE CASE 9: Error Handling & Validation
  * =============================================================================
  */
 
-// 1. DATA MODEL: Represents a confirmed reservation
-// (Simplified version of the Reservation class for this use case)
-class Reservation {
-    private String guestName;
-    private String roomType;
-
-    public Reservation(String guestName, String roomType) {
-        this.guestName = guestName;
-        this.roomType = roomType;
-    }
-
-    public String getGuestName() { return guestName; }
-    public String getRoomType() { return roomType; }
-}
-
-// 2. STORAGE CLASS: Maintains the audit trail of confirmed bookings
-class BookingHistory {
-    private List<Reservation> confirmedReservations;
-
-    public BookingHistory() {
-        // ArrayList is used to maintain insertion order (chronological history)
-        this.confirmedReservations = new ArrayList<>();
-    }
-
-    public void addReservation(Reservation reservation) {
-        confirmedReservations.add(reservation);
-    }
-
-    public List<Reservation> getConfirmedReservations() {
-        return confirmedReservations;
+// 1. CUSTOM EXCEPTION: Represents domain-specific booking errors
+class InvalidBookingException extends Exception {
+    public InvalidBookingException(String message) {
+        super(message);
     }
 }
 
-// 3. SERVICE CLASS: Handles reporting logic (Separated from storage)
-class BookingReportService {
+// 2. MOCK INVENTORY: Used for validation logic
+class RoomInventory {
+    public boolean isValidType(String roomType) {
+        // Simplified check: only allows specific types (case-sensitive for this example)
+        return roomType.equals("Single") || roomType.equals("Double") || roomType.equals("Suite");
+    }
+}
+
+// 3. VALIDATOR: Centralizes all rules to prevent data corruption
+class ReservationValidator {
     /**
-     * Iterates through history and prints a formatted summary.
+     * Validates input before any processing happens.
+     * @throws InvalidBookingException if rules are violated.
      */
-    public void generateReport(BookingHistory history) {
-        System.out.println("Booking History Report");
-        System.out.println("---------------------------");
+    public void validate(String guestName, String roomType, RoomInventory inventory)
+            throws InvalidBookingException {
 
-        List<Reservation> records = history.getConfirmedReservations();
-
-        if (records.isEmpty()) {
-            System.out.println("No records found.");
-            return;
+        if (guestName == null || guestName.trim().isEmpty()) {
+            throw new InvalidBookingException("Guest name cannot be empty.");
         }
 
-        for (Reservation res : records) {
-            System.out.println("Guest: " + res.getGuestName() +
-                    ", Room Type: " + res.getRoomType());
+        if (!inventory.isValidType(roomType)) {
+            throw new InvalidBookingException("Invalid room type selected: " + roomType);
         }
     }
 }
 
-// 4. MAIN CLASS: Application Entry Point
+// 4. MAIN CLASS: Demonstrates Graceful Failure Handling
 public class BookMyStayApp {
     public static void main(String[] args) {
-        // Initialize Components
-        BookingHistory history = new BookingHistory();
-        BookingReportService reportService = new BookingReportService();
+        System.out.println("Booking Validation System");
+        System.out.println("-------------------------");
 
-        // Simulate confirming bookings (Adding to history)
-        history.addReservation(new Reservation("Abhi", "Single"));
-        history.addReservation(new Reservation("Subha", "Double"));
-        history.addReservation(new Reservation("Vanmathi", "Suite"));
+        Scanner scanner = new Scanner(System.in);
+        RoomInventory inventory = new RoomInventory();
+        ReservationValidator validator = new ReservationValidator();
 
-        // Display the Output
-        System.out.println("Booking History and Reporting\n");
-        reportService.generateReport(history);
+        try {
+            // Step 1: Collect Input
+            System.out.print("Enter guest name: ");
+            String name = scanner.nextLine();
+
+            System.out.print("Enter room type (Single/Double/Suite): ");
+            String type = scanner.nextLine();
+
+            // Step 2: Validate (Fail-Fast)
+            // If this fails, the code jumps straight to the catch block
+            validator.validate(name, type, inventory);
+
+            // Step 3: Success Path
+            System.out.println("Validation successful! Proceeding with booking for " + name);
+
+        } catch (InvalidBookingException e) {
+            // Step 4: Graceful Failure
+            // The system doesn't crash; it just informs the user.
+            System.err.println("Booking failed: " + e.getMessage());
+        } finally {
+            // Ensure resources are closed regardless of success or failure
+            scanner.close();
+            System.out.println("-------------------------");
+            System.out.println("System state remains stable.");
+        }
     }
 }
